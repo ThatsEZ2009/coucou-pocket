@@ -116,9 +116,10 @@
       };
     }
 
-    // Everything the relay still holds for a topic (ntfy.sh keeps messages about 12 hours), oldest first: for pairing.
-    async function pull(topic) {
-      const res = await fetchFn(`${base()}/${topic}/json?poll=1&since=all`);
+    // What the relay still holds for a topic (ntfy.sh keeps messages about 12 hours), oldest first: for pairing, and for the widget
+    // (since: 'all', or a duration like '20m').
+    async function pull(topic, since = 'all') {
+      const res = await fetchFn(`${base()}/${topic}/json?poll=1&since=${since}`);
       if (!res.ok) throw new Error(`relay ${res.status}`);
       return parseLines(await res.text()).events.filter((e) => e.event === 'message' && typeof e.message === 'string').map((e) => e.message);
     }

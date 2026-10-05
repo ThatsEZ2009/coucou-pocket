@@ -33,6 +33,13 @@
       <p id="a2hs" class="a2hs" hidden>📌 Tip: in Safari tap <b>Share</b> ⬆︎, then <b>Add to Home Screen</b>, and open Coucou from the new icon. It then opens full screen like an app.</p>
     </section>
 
+    <!-- the Home Screen widget (the page opened with ?w=1 inside the Widget Web app): his face and one line, read once -->
+    <section id="widget" hidden>
+      <div class="pk-hero"><div class="mascot mascot-hero" id="w-mascot"><div class="mascot-body"><span class="eye eye-left"></span><span class="eye eye-right"></span></div></div></div>
+      <div id="w-head" class="w-head"></div>
+      <div id="w-sub" class="w-sub"></div>
+    </section>
+
     <!-- the live page -->
     <section id="live" hidden>
       <header class="pk-top">
@@ -48,15 +55,17 @@
       <div id="cards" class="stack"></div>
       <section id="now" class="panel" hidden></section>
       <section id="others" class="panel" hidden></section>
-      <footer class="pk-foot"><span id="conn" class="conn"></span><button id="unpair" class="link">Unpair this phone</button></footer>
+      <footer class="pk-foot"><span id="conn" class="conn"></span><span><button id="wlink" class="link">Copy widget link</button><button id="unpair" class="link">Unpair this phone</button></span></footer>
     </section>
   </main>
   <script src="faces.js"></script>
   <script src="mascot.js"></script>
   <script src="sounds.js"></script>
+  <script src="acts.js"></script>
   <script src="pocket-link.js"></script>
   <script src="pocket-relay.js"></script>
   <script src="pocket-client.js"></script>
+  <script src="alive.js"></script>
   <script src="pocket-app.js"></script>
 </body>
 </html>

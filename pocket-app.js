@@ -3,10 +3,12 @@
 (function () {
   const Faces = window.CoucouFaces;
   const Sounds = window.CoucouSounds;
+  const Alive = window.PocketAlive;
   const Link = window.PocketLink;
   const Client = window.PocketClient;
   const $ = (id) => document.getElementById(id);
   const KEY = 'coucou-pocket-v1';
+  const WIDGET = /[?&]w=1/.test(location.search); // the Home Screen widget view (inside the Widget Web app)
 
   const store = {
     load() {
@@ -79,12 +81,19 @@
 
   // ---------- state ----------
   const S = { cfg: null, client: null, conn: 'down', seenAt: 0, quietUntil: 0, sessions: { main: null, chips: [], running: 0 }, asks: new Map(), cards: [],
-    ui: new Map(), banner: '', drawn: new Set() };
+    ui: new Map(), banner: '', drawn: new Set(), widget: false, dozing: false };
   const quietNow = () => Date.now() < S.quietUntil;
   const uiOf = (id) => {
     if (!S.ui.has(id)) S.ui.set(id, { qi: 0, answers: {}, picked: new Set(), confirm: false, sent: false, sentAt: 0 });
     return S.ui.get(id);
   };
+
+  // a card arrived: his move for it (a hop and confetti for good news, a stomp for the red ones, a shake for a worry…)
+  function reactTo(card) {
+    if (S.widget || !heroMascot) return;
+    if (S.dozing) { S.dozing = false; }
+    setTimeout(() => Alive.act(heroMascot, Alive.cardAct(card, Faces.cardMood(card)), { onCard: true }), 260);
+  }
 
   function onItem(c, d) {
     switch (c) {
@@ -95,7 +104,10 @@
         if (d && d.id) {
           const fresh = !S.asks.has(d.id);
           S.asks.set(d.id, d);
-          if (fresh) ding(d.kind === 'plan' ? 'plan' : d.kind === 'permission' ? (d.risk && d.risk.force ? 'warning-red' : 'permission') : 'question');
+          if (fresh) {
+            ding(d.kind === 'plan' ? 'plan' : d.kind === 'permission' ? (d.risk && d.risk.force ? 'warning-red' : 'permission') : 'question');
+            reactTo(d);
+          }
         }
         break;
       case 'ask-over': S.asks.delete(d); S.ui.delete(d); break;
@@ -109,7 +121,10 @@
       case 'card':
         if (d && d.id) {
           S.cards = [d, ...S.cards.filter((x) => x.id !== d.id && x.id !== d.replaces)].slice(0, 6);
-          if (d.kind === 'done' && !(d.summary && d.summary.pending)) ding(d.summary && d.summary.stopped ? 'stuck' : 'done');
+          if (d.kind === 'done' && !(d.summary && d.summary.pending)) {
+            ding(d.summary && d.summary.stopped ? 'stuck' : 'done');
+            reactTo(d);
+          }
         }
         break;
       case 'toast':
@@ -124,7 +139,7 @@
         break;
       default: break;
     }
-    render();
+    if (!S.widget) render();
   }
 
   // ---------- answers ----------
@@ -282,6 +297,7 @@
   // ---------- the whole page ----------
   function heroMood() {
     if (S.conn !== 'open' && !S.seenAt) return 'sleepy';
+    if (S.dozing) return 'sleepy';
     if (S.asks.size) return Faces.cardMood([...S.asks.values()][0]);
     if (quietNow()) return 'sleepy';
     if (S.cards[0]) return Faces.cardMood(S.cards[0]);
@@ -310,8 +326,12 @@
       heroMascot = $('hero');
       Faces.dressMascot(heroMascot);
       sparkle(heroMascot.parentElement, 10, 7);
+      Alive.env.quiet = quietNow;
+      Alive.touchy(heroMascot);
+      Alive.idle(heroMascot, { busy: () => S.asks.size > 0 || (S.sessions.main && S.sessions.main.status === 'busy'), onDoze: () => { S.dozing = true; render(); }, onWake: () => { S.dozing = false; render(); } });
+      setTimeout(() => Alive.act(heroMascot, 'hello'), 700);
     }
-    Faces.setMood(heroMascot, mood);
+    Alive.face(heroMascot, mood);
     const [h, sub] = headline();
     $('headline').textContent = h;
     $('subline').textContent = sub;
@@ -399,6 +419,7 @@
     Faces.dressMascot(m);
     Faces.setMood(m, 'happy');
     sparkle(m.parentElement, 10, 3);
+    Alive.touchy(m);
     $('pair-code').focus();
     $('a2hs').hidden = window.navigator.standalone !== false; // (iOS Safari, not yet on the Home Screen)
   }
@@ -423,6 +444,18 @@
     S.client.quiet(on).catch(() => {});
     render();
   });
+  // the address to paste into the Widget Web app: this page in widget mode, with the link settings in the #hash
+  $('wlink').addEventListener('click', async () => {
+    const url = Link.makeLink(`${location.origin}${location.pathname}?w=1`, S.cfg);
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      ok = true;
+    } catch {}
+    S.banner = ok ? 'Widget link copied. Paste it into the Widget Web app.' : 'Could not copy. Try again.';
+    render();
+    setTimeout(() => { S.banner = ''; render(); }, 6000);
+  });
   $('unpair').addEventListener('click', () => {
     if (!confirm('Unpair this phone from Coucou?')) return;
     if (S.client) S.client.stop();
@@ -441,15 +474,52 @@
   setInterval(() => { if (S.cfg) render(); }, 15000); // (the "PC connected" light and the quiet time)
   window.CoucouMascot.startBlinking(document.body);
 
+  // ---------- the widget view (?w=1): read the relay once and show his face + one line ----------
+  async function runWidget(cfg) {
+    S.widget = true;
+    S.cfg = cfg;
+    document.body.classList.add('pk-widget');
+    $('widget').hidden = false;
+    const m = $('w-mascot');
+    Faces.dressMascot(m);
+    let lastAt = 0;
+    try {
+      const relay = window.PocketRelay.createRelay({ server: cfg.server });
+      const joiner = Link.joiner();
+      const batches = [];
+      for (const t of await relay.pull(cfg.down, '30m')) {
+        const whole = joiner.add(t);
+        const msg = whole ? await Link.open(cfg.key, whole) : null;
+        if (msg && msg.t === 'batch' && Array.isArray(msg.items)) batches.push(msg);
+      }
+      batches.sort((a, b) => a.at - b.at); // (by time: the counter starts again whenever the PC restarts)
+      for (const b of batches) {
+        lastAt = b.at;
+        for (const it of b.items) if (it && typeof it.c === 'string') onItem(it.c, it.d);
+      }
+    } catch {}
+    S.seenAt = lastAt; // (so the headline and the face know the PC spoke)
+    const ago = lastAt ? Math.max(0, Math.round((Date.now() - lastAt) / 60000)) : -1;
+    Faces.setMood(m, ago < 0 || ago > 30 ? 'sleepy' : heroMood());
+    const [h, sub] = ago < 0 ? ['All quiet', 'Nothing from your PC lately'] : headline();
+    $('w-head').textContent = h;
+    $('w-sub').textContent = [sub, ago > 1 ? `${ago >= 60 ? `${Math.floor(ago / 60)} h` : `${ago} min`} ago` : ''].filter(Boolean).join(' · ');
+  }
+
   const saved = store.load();
   // a pairing link opened directly (#...) also works: it carries the settings
-  const fromLink = !saved && location.hash.length > 20 ? Link.parseLink(location.hash) : null;
+  const fromLink = !saved && !WIDGET && location.hash.length > 20 ? Link.parseLink(location.hash) : null;
   if (fromLink) {
     store.save(fromLink);
     history.replaceState(null, '', location.pathname);
   }
   const cfg = saved || fromLink;
-  if (cfg) start(cfg);
+  if (WIDGET) {
+    // (the Widget Web app has its own storage: the widget's address carries the settings in its #hash)
+    const w = Link.parseLink(location.hash) || saved;
+    if (w) runWidget(w);
+    else { document.body.classList.add('pk-widget'); $('widget').hidden = false; $('w-head').textContent = 'Open Coucou first'; $('w-sub').textContent = 'and copy the widget link'; }
+  } else if (cfg) start(cfg);
   else showPair();
   window.__pocket = { S, onItem, render }; // (for tests)
 })();
