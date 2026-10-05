@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d11">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Coucou">
+  <meta name="referrer" content="no-referrer">
+  <!-- no tracking, no outside scripts: the page only talks to the relay server named in your pairing -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://ntfy.sh https://*.ntfy.sh http://127.0.0.1:* http://localhost:*; manifest-src 'self'">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png">
+  <title>Coucou</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="pocket.css">
+</head>
+<body class="pocket">
+  <main id="app">
+    <!-- first time: type the code Coucou shows (Settings → Phone) -->
+    <section id="pair" hidden>
+      <div class="pk-hero"><div class="mascot mascot-hero" id="pair-mascot"><div class="mascot-body"><span class="eye eye-left"></span><span class="eye eye-right"></span></div></div></div>
+      <h1>Hi! I'm Coucou.</h1>
+      <p>On your PC open Coucou → ⚙ Settings → <b>Phone</b> → <b>Set up phone</b>. Type the code it shows:</p>
+      <form id="pair-form" autocomplete="off">
+        <input id="pair-code" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="12" placeholder="XXXXX-XXXXX" aria-label="Pairing code">
+        <button type="submit" class="pk-btn pk-primary">Connect</button>
+      </form>
+      <p id="pair-note" class="note" role="status"></p>
+      <p id="a2hs" class="a2hs" hidden>📌 Tip: in Safari tap <b>Share</b> ⬆︎, then <b>Add to Home Screen</b>, and open Coucou from the new icon. It then opens full screen like an app.</p>
+    </section>
+
+    <!-- the live page -->
+    <section id="live" hidden>
+      <header class="pk-top">
+        <div class="pk-hero"><div class="mascot mascot-hero" id="hero"><div class="mascot-body"><span class="eye eye-left"></span><span class="eye eye-right"></span></div></div></div>
+        <div class="pk-status">
+          <div id="headline" class="headline">Connecting…</div>
+          <div id="subline" class="subline"></div>
+        </div>
+        <button id="quiet" class="pk-icon" aria-label="Quiet" title="Quiet for an hour">🌙</button>
+      </header>
+      <div id="banner" class="banner" hidden></div>
+      <div id="asks" class="stack" aria-live="polite"></div>
+      <div id="cards" class="stack"></div>
+      <section id="now" class="panel" hidden></section>
+      <section id="others" class="panel" hidden></section>
+      <footer class="pk-foot"><span id="conn" class="conn"></span><button id="unpair" class="link">Unpair this phone</button></footer>
+    </section>
+  </main>
+  <script src="faces.js"></script>
+  <script src="mascot.js"></script>
+  <script src="sounds.js"></script>
+  <script src="pocket-link.js"></script>
+  <script src="pocket-relay.js"></script>
+  <script src="pocket-client.js"></script>
+  <script src="pocket-app.js"></script>
+</body>
+</html>
